@@ -32,34 +32,48 @@ class CreditApplication(BaseModel):
     limit_bal: float = Field(
         ..., gt=0, le=2_000_000, description="Credit limit in NT dollars", examples=[120000]
     )
-    sex: Literal[1, 2] = Field(..., description="1 = male, 2 = female", examples=[2])
+    sex: Literal[1, 2, 3] = Field(..., description="1 = male, 2 = female, 3 = other", examples=[2])
     education: Literal[1, 2, 3, 4] = Field(
         ..., description="1 = graduate school, 2 = university, 3 = high school, 4 = others",
         examples=[2],
     )
 
     # TODO 1a: marriage
-    # marriage: Literal[???] = Field(..., description="...", examples=[2])
+    marriage: Literal[1, 2, 3] = Field(..., description="1 = married, 2 = single, 3 = others", examples=[2])
 
     # TODO 1b: age
-    # age: int = Field(..., ge=???, le=???, description="Age in years", examples=[34])
+    age: int = Field(..., ge=18, le=100, description="Age in years", examples=[34])
 
     # TODO 1c: pay_status
-    # pay_status: List[int] = Field(
-    #     ...,
-    #     min_length=???,
-    #     max_length=???,
-    #     description=(
-    #         "Repayment status for months t-1 .. t-6. "
-    #         "-2 = no consumption, -1 = paid in full, 0 = revolving credit, "
-    #         "1..8 = months of payment delay."
-    #     ),
-    #     examples=[[0, 0, 0, 0, 0, 0]],
-    # )
+    pay_status: List[int] = Field(
+        ...,
+        min_length=6,
+        max_length=6,
+        description=(
+            "Repayment status for months t-1 .. t-6. "
+            "-2 = no consumption, -1 = paid in full, 0 = revolving credit, "
+            "1..8 = months of payment delay."
+        ),
+        examples=[[0, 0, 0, 0, 0, 0]],
+    )
 
     # TODO 1d: bill_amt
+    bill_amt: List[float] = Field(
+        ...,
+        min_length=6,
+        max_length=6,
+        description="Bill amounts for months t-1 .. t-6.",
+        examples=[[10000.0, 15000.0, 20000.0, 25000.0, 30000.0, 35000.0]],
+    )
 
     # TODO 1e: pay_amt
+    pay_amt: List[float] = Field(
+        ...,
+        min_length=6,
+        max_length=6,
+        description="Payment amounts for months t-1 .. t-6.",
+        examples=[[5000.0, 7500.0, 10000.0, 12500.0, 15000.0, 17500.0]],
+    )
 
     # =========================================================================
     # TODO 2: Add the two custom validators
@@ -69,6 +83,19 @@ class CreditApplication(BaseModel):
     #   2a. every value in pay_status must be between -2 and 8
     #   2b. no value in pay_amt may be negative
     #
+    @field_validator("pay_status")
+    @classmethod
+    def validate_pay_status(cls, values: List[int]) -> List[int]:
+        if any(value < -2 or value > 8 for value in values):
+            raise ValueError("Each pay_status value must be between -2 and 8")
+        return values
+
+    @field_validator("pay_amt")
+    @classmethod
+    def validate_pay_amt(cls, values: List[float]) -> List[float]:
+        if any(value < 0 for value in values):
+            raise ValueError("Each pay_amt value must be non-negative")
+        return values
 
 
 # =============================================================================
@@ -87,7 +114,12 @@ class PredictionResponse(BaseModel):
     """Scoring result plus the decision derived from it."""
 
     # TODO: define the six fields
-    pass
+    default_probability: float = Field(..., ge=0.0, le=1.0)
+    risk_band: str = Field(..., pattern="^(LOW|MEDIUM|HIGH)$")
+    decision: str = Field(..., pattern="^(APPROVE|REVIEW|DECLINE)$")
+    review_threshold: float
+    decline_threshold: float
+    model_version: str
 
 
 # =============================================================================
@@ -102,6 +134,9 @@ class HealthResponse(BaseModel):
     """Liveness and readiness of the service."""
 
     # TODO: define the three fields
+    status: str = Field(..., pattern="^(healthy|unhealthy)$")
+    model_loaded: bool
+    model_version: str
     pass
 
 

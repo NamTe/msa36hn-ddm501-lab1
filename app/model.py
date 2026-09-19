@@ -56,20 +56,19 @@ class CreditRiskModel:
 
     def _load_model(self) -> None:
         """Load the trained pipeline from disk."""
-        # TODO: implement
-        #
-        # try:
-        #     bundle = joblib.load(???)
-        #     self.model = bundle[???]
-        #     self.metadata = bundle.get("metadata", {})
-        #     logger.info("Model loaded from %s", self.model_path)
-        # except FileNotFoundError:
-        #     logger.error(...)
-        #     raise
-        pass
+        try:
+            bundle = joblib.load(self.model_path)
+            self.model = bundle["pipeline"]
+            self.metadata = bundle.get("metadata", {})
+            logger.info("Model loaded from %s", self.model_path)
+        except FileNotFoundError:
+            logger.error(
+                "Model file not found at %s. Please run scripts/train_model.py to train the model.",
+                self.model_path,
+            )
+            raise
 
     # =========================================================================
-    # TODO 2: Implement to_frame
     # =========================================================================
     # The API speaks in grouped lists (pay_status, bill_amt, pay_amt); the model
     # was trained on 23 flat columns. This method bridges the two.
@@ -86,17 +85,20 @@ class CreditRiskModel:
     @staticmethod
     def to_frame(applications: List[Dict[str, Any]]) -> pd.DataFrame:
         """Flatten API payloads into the wide frame the model was trained on."""
-        # TODO: implement
-        #
-        # rows = []
-        # for a in applications:
-        #     row = {"LIMIT_BAL": a["limit_bal"], ...}
-        #     for i, name in enumerate(["PAY_0", "PAY_2", "PAY_3", "PAY_4", "PAY_5", "PAY_6"]):
-        #         row[name] = a["pay_status"][i]
-        #     ...
-        #     rows.append(row)
-        # return pd.DataFrame(rows, columns=FEATURE_COLUMNS)
-        pass
+        rows = [
+            [
+                a["limit_bal"],
+                a["sex"],
+                a["education"],
+                a["marriage"],
+                a["age"],
+                *a["pay_status"],
+                *a["bill_amt"],
+                *a["pay_amt"],
+            ]
+            for a in applications
+        ]
+        return pd.DataFrame(rows, columns=FEATURE_COLUMNS)
 
     # -------------------------------------------------------------------------
     def predict_proba(self, applications: List[Dict[str, Any]]) -> np.ndarray:
@@ -117,8 +119,11 @@ class CreditRiskModel:
     @staticmethod
     def decide(probability: float) -> Dict[str, str]:
         """Turn a probability into a risk band and an underwriting decision."""
-        # TODO: implement
-        pass
+        if probability >= DECLINE_THRESHOLD:
+            return {"risk_band": "HIGH", "decision": "DECLINE"}
+        if probability >= REVIEW_THRESHOLD:
+            return {"risk_band": "MEDIUM", "decision": "REVIEW"}
+        return {"risk_band": "LOW", "decision": "APPROVE"}
 
     # =========================================================================
     # TODO 4: Implement score
@@ -132,8 +137,15 @@ class CreditRiskModel:
 
     def score(self, application: Dict[str, Any]) -> Dict[str, Any]:
         """Score one application and return the full response payload."""
-        # TODO: implement
-        pass
+        probability = float(self.predict_proba([application])[0])
+        result = {
+            "default_probability": round(probability, 4),
+            "review_threshold": REVIEW_THRESHOLD,
+            "decline_threshold": DECLINE_THRESHOLD,
+            "model_version": MODEL_VERSION,
+        }
+        result.update(self.decide(probability))
+        return result
 
     # -------------------------------------------------------------------------
     def score_batch(self, applications: List[Dict[str, Any]]) -> List[Dict[str, Any]]:

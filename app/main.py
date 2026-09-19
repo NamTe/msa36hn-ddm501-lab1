@@ -96,8 +96,14 @@ async def health_check():
 @app.post("/predict", response_model=PredictionResponse, tags=["Prediction"])
 async def predict(application: CreditApplication):
     """Score one applicant and return the underwriting decision."""
-    # TODO: implement
-    pass
+    if model is None or not model.is_loaded():
+        raise HTTPException(status_code=503, detail="Model is not loaded")
+
+    try:
+        return PredictionResponse(**model.score(application.model_dump()))
+    except Exception as exc:
+        logger.exception("Failed to score application")
+        raise HTTPException(status_code=500, detail="Prediction failed") from exc
 
 
 # =============================================================================
@@ -113,8 +119,20 @@ async def predict(application: CreditApplication):
 @app.post("/predict/batch", response_model=BatchPredictionResponse, tags=["Prediction"])
 async def predict_batch(request: BatchPredictionRequest):
     """Score up to 500 applicants in one call."""
-    # TODO: implement
-    pass
+    if model is None or not model.is_loaded():
+        raise HTTPException(status_code=503, detail="Model is not loaded")
+
+    try:
+        results = model.score_batch(
+            [application.model_dump() for application in request.applications]
+        )
+        return BatchPredictionResponse(
+            predictions=[PredictionResponse(**result) for result in results],
+            total_count=len(results),
+        )
+    except Exception as exc:
+        logger.exception("Failed to score batch")
+        raise HTTPException(status_code=500, detail="Prediction failed") from exc
 
 
 # =============================================================================
