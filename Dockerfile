@@ -18,7 +18,7 @@ COPY scripts/ ./scripts/
 COPY data/ ./data/
 
 RUN useradd --uid 1000 --create-home appuser
-RUN mkdir -p /app/models && chown -R appuser:appuser /app
+RUN chown -R appuser:appuser /app
 USER appuser
 
 EXPOSE 8000
