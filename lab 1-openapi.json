@@ -1,0 +1,168 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "lab 1",
+    "description": "",
+    "version": "1.0.0"
+  },
+  "paths": {
+    "/health": {
+      "get": {
+        "summary": "health",
+        "responses": {
+          "200": {
+            "description": "Successful response"
+          }
+        },
+        "operationId": "health"
+      }
+    },
+    "/model/info": {
+      "get": {
+        "summary": "model info",
+        "responses": {
+          "200": {
+            "description": "Successful response"
+          }
+        },
+        "operationId": "model_info"
+      }
+    },
+    "/predict": {
+      "post": {
+        "summary": "predict",
+        "responses": {
+          "200": {
+            "description": "Successful response"
+          }
+        },
+        "operationId": "predict",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "example": {
+                "limit_bal": 300000,
+                "sex": 2,
+                "education": 1,
+                "marriage": 2,
+                "age": 38,
+                "pay_status": [
+                  -1,
+                  -1,
+                  -1,
+                  -1,
+                  -1,
+                  -1
+                ],
+                "bill_amt": [
+                  12000,
+                  11500,
+                  11000,
+                  10500,
+                  10000,
+                  9500
+                ],
+                "pay_amt": [
+                  12000,
+                  11500,
+                  11000,
+                  10500,
+                  10000,
+                  9500
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/predict/batch": {
+      "post": {
+        "summary": "predict batch",
+        "responses": {
+          "200": {
+            "description": "Successful response"
+          }
+        },
+        "operationId": "predict_batch",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "example": {
+                "applications": [
+                  {
+                    "limit_bal": 300000,
+                    "sex": 2,
+                    "education": 1,
+                    "marriage": 2,
+                    "age": 38,
+                    "pay_status": [
+                      -1,
+                      -1,
+                      -1,
+                      -1,
+                      -1,
+                      -1
+                    ],
+                    "bill_amt": [
+                      12000,
+                      11500,
+                      11000,
+                      10500,
+                      10000,
+                      9500
+                    ],
+                    "pay_amt": [
+                      12000,
+                      11500,
+                      11000,
+                      10500,
+                      10000,
+                      9500
+                    ]
+                  },
+                  {
+                    "limit_bal": 300000,
+                    "sex": 1,
+                    "education": 1,
+                    "marriage": 1,
+                    "age": 32,
+                    "pay_status": [
+                      -2,
+                      -1,
+                      -1,
+                      -1,
+                      -1,
+                      -1
+                    ],
+                    "bill_amt": [
+                      12000,
+                      11500,
+                      11000,
+                      10500,
+                      10000,
+                      9500
+                    ],
+                    "pay_amt": [
+                      12000,
+                      11500,
+                      11000,
+                      10500,
+                      10000,
+                      9500
+                    ]
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "servers": [
+    {
+      "url": "http://localhost:8000"
+    }
+  ]
+}
