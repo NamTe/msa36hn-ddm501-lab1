@@ -32,7 +32,7 @@ class CreditApplication(BaseModel):
     limit_bal: float = Field(
         ..., gt=0, le=2_000_000, description="Credit limit in NT dollars", examples=[120000]
     )
-    sex: Literal[1, 2, 3] = Field(..., description="1 = male, 2 = female, 3 = other", examples=[2])
+    sex: Literal[1, 2] = Field(..., description="1 = male, 2 = female", examples=[2])
     education: Literal[1, 2, 3, 4] = Field(
         ..., description="1 = graduate school, 2 = university, 3 = high school, 4 = others",
         examples=[2],

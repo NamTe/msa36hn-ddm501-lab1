@@ -85,21 +85,17 @@ class TestInfoEndpoints:
         assert 0.5 < data["metrics"]["roc_auc"] <= 1.0
 
 
-# =============================================================================
-# TODO 1: Happy-path tests for /predict
-# =============================================================================
 class TestPredictEndpoint:
     """The /predict endpoint — happy path."""
 
     def test_valid_application_returns_200(self, client):
         """POST GOOD_APPLICANT to /predict and assert the status code."""
-        # TODO: implement
-        pass
+        assert client.post("/predict", json=GOOD_APPLICANT).status_code == 200
 
     def test_probability_is_a_valid_probability(self, client):
         """Assert default_probability is between 0.0 and 1.0 inclusive."""
-        # TODO: implement
-        pass
+        data = client.post("/predict", json=GOOD_APPLICANT).json()
+        assert 0.0 <= data["default_probability"] <= 1.0
 
     def test_response_contains_every_field(self, client):
         """Assert the response has exactly the six documented fields.
@@ -108,10 +104,20 @@ class TestPredictEndpoint:
         accidental extra field — say, one carrying applicant data — fails the
         test instead of slipping into production.
         """
-        # TODO: implement
-        pass
+        data = client.post("/predict", json=GOOD_APPLICANT).json()
+        assert set(data) == {
+            "default_probability",
+            "risk_band",
+            "decision",
+            "review_threshold",
+            "decline_threshold",
+            "model_version",
+        }
 
-    def test_decision_is_consistent_with_thresholds(self, client):
+    @pytest.mark.parametrize(
+        "application", [GOOD_APPLICANT, RISKY_APPLICANT], ids=["good", "risky"]
+    )
+    def test_decision_is_consistent_with_thresholds(self, client, application):
         """The decision must follow from the score — no third source of truth.
 
         For both GOOD_APPLICANT and RISKY_APPLICANT, read back
@@ -119,8 +125,15 @@ class TestPredictEndpoint:
         response and assert that decision and risk_band are what those three
         numbers imply.
         """
-        # TODO: implement
-        pass
+        data = client.post("/predict", json=application).json()
+        probability = data["default_probability"]
+        if probability >= data["decline_threshold"]:
+            expected = ("DECLINE", "HIGH")
+        elif probability >= data["review_threshold"]:
+            expected = ("REVIEW", "MEDIUM")
+        else:
+            expected = ("APPROVE", "LOW")
+        assert (data["decision"], data["risk_band"]) == expected
 
     def test_deterministic(self, client):
         """The same request twice must give the same score.
@@ -128,20 +141,22 @@ class TestPredictEndpoint:
         Obvious? It stops being obvious the moment someone adds a timestamp
         feature, a random seed, or a cache.
         """
-        # TODO: implement
-        pass
+        first = client.post("/predict", json=GOOD_APPLICANT).json()
+        second = client.post("/predict", json=GOOD_APPLICANT).json()
+        assert first["default_probability"] == second["default_probability"]
 
 
 # =============================================================================
-# TODO 2: Behavioural tests
 # =============================================================================
 class TestModelBehaviour:
     """Properties the model must satisfy."""
 
     def test_risky_scores_higher_than_good(self, client):
         """RISKY_APPLICANT must get a higher probability than GOOD_APPLICANT."""
-        # TODO: implement
-        pass
+        good = client.post("/predict", json=GOOD_APPLICANT)
+        risky = client.post("/predict", json=RISKY_APPLICANT)
+        assert good.status_code == risky.status_code == 200
+        assert risky.json()["default_probability"] > good.json()["default_probability"]
 
     def test_more_delay_never_lowers_risk(self, client):
         """Monotonicity: worse repayment history must not reduce the score.
@@ -150,12 +165,18 @@ class TestModelBehaviour:
         pay_status to [1, 0, 0, 0, 0, 0] on one and [4, 3, 3, 2, 2, 2] on the
         other, and assert the second scores at least as high as the first.
         """
-        # TODO: implement
-        pass
+        less_delayed = copy.deepcopy(GOOD_APPLICANT)
+        more_delayed = copy.deepcopy(GOOD_APPLICANT)
+        less_delayed["pay_status"] = [1, 0, 0, 0, 0, 0]
+        more_delayed["pay_status"] = [4, 3, 3, 2, 2, 2]
+
+        first = client.post("/predict", json=less_delayed)
+        second = client.post("/predict", json=more_delayed)
+        assert first.status_code == second.status_code == 200
+        assert second.json()["default_probability"] >= first.json()["default_probability"]
 
 
 # =============================================================================
-# TODO 3: Validation tests
 # =============================================================================
 # Every one of these must come back 422 — rejected by the schema, never
 # reaching the model.
@@ -180,18 +201,21 @@ class TestValidation:
         Hint: parametrize runs this once per (field, value) pair, so seven
         tests come out of one function body.
         """
-        # TODO: implement
-        pass
+        application = copy.deepcopy(GOOD_APPLICANT)
+        application[field] = value
+        assert client.post("/predict", json=application).status_code == 422
 
     def test_missing_field_is_rejected(self, client):
         """Delete a required field and assert 422."""
-        # TODO: implement
-        pass
+        application = copy.deepcopy(GOOD_APPLICANT)
+        del application["age"]
+        assert client.post("/predict", json=application).status_code == 422
 
     def test_wrong_list_length_is_rejected(self, client):
         """Send pay_status with 3 entries instead of 6 and assert 422."""
-        # TODO: implement
-        pass
+        application = copy.deepcopy(GOOD_APPLICANT)
+        application["pay_status"] = [0, 0, 0]
+        assert client.post("/predict", json=application).status_code == 422
 
     def test_pay_status_out_of_domain_is_rejected(self, client):
         """Send pay_status = [99, 0, 0, 0, 0, 0] and assert 422.
@@ -199,35 +223,47 @@ class TestValidation:
         This one only passes if you wrote the custom validator in schemas.py.
         Field bounds alone will not catch it.
         """
-        # TODO: implement
-        pass
+        application = copy.deepcopy(GOOD_APPLICANT)
+        application["pay_status"] = [99, 0, 0, 0, 0, 0]
+        assert client.post("/predict", json=application).status_code == 422
 
     def test_negative_payment_is_rejected(self, client):
         """Send a negative value in pay_amt and assert 422."""
-        # TODO: implement
-        pass
+        application = copy.deepcopy(GOOD_APPLICANT)
+        application["pay_amt"][0] = -1
+        assert client.post("/predict", json=application).status_code == 422
 
     def test_empty_body_is_rejected(self, client):
         """POST {} and assert 422."""
-        # TODO: implement
-        pass
+        assert client.post("/predict", json={}).status_code == 422
 
 
 # =============================================================================
-# TODO 4: Batch tests
 # =============================================================================
 class TestBatchEndpoint:
     """The /predict/batch endpoint."""
 
     def test_returns_one_result_per_application(self, client):
         """Send three applications, assert total_count and list length."""
-        # TODO: implement
-        pass
+        response = client.post(
+            "/predict/batch",
+            json={"applications": [GOOD_APPLICANT, RISKY_APPLICANT, GOOD_APPLICANT]},
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert data["total_count"] == 3
+        assert len(data["predictions"]) == 3
 
     def test_order_is_preserved(self, client):
         """Send [GOOD, RISKY] and assert the second result scores higher."""
-        # TODO: implement
-        pass
+        response = client.post(
+            "/predict/batch",
+            json={"applications": [GOOD_APPLICANT, RISKY_APPLICANT]},
+        )
+        assert response.status_code == 200
+        predictions = response.json()["predictions"]
+        assert len(predictions) == 2
+        assert predictions[1]["default_probability"] > predictions[0]["default_probability"]
 
     def test_matches_single_prediction(self, client):
         """A batch of one must give exactly what /predict gives.
@@ -235,10 +271,14 @@ class TestBatchEndpoint:
         This is the test that catches a batch path which quietly reorders
         columns or skips a preprocessing step.
         """
-        # TODO: implement
-        pass
+        single = client.post("/predict", json=GOOD_APPLICANT)
+        batch = client.post(
+            "/predict/batch", json={"applications": [GOOD_APPLICANT]}
+        )
+        assert single.status_code == batch.status_code == 200
+        assert batch.json()["predictions"] == [single.json()]
 
     def test_empty_batch_is_rejected(self, client):
         """POST {"applications": []} and assert 422."""
-        # TODO: implement
-        pass
+        response = client.post("/predict/batch", json={"applications": []})
+        assert response.status_code == 422
